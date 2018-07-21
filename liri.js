@@ -1,66 +1,85 @@
 require("dotenv").config();
 
+var keys = require("./keys.js");
 var Twitter = require('twitter');
- 
-var client = new Twitter({
-    consumer_key: process.env.TWITTER_CONSUMER_KEY,
-    consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-    access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
-    access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-  });
+var Spotify = require('node-spotify-api');
+var request = require('request');
+var fs = require('fs');
+
+
+var spotify = new Spotify(keys.spotify);
+var client = new Twitter(keys.twitter);
 
 var params = {
     screen_name: 'ExactlyMay',
-    // q: '#nodejs',
-    count: 10,
+    count: 21,
     result_type: 'recent',
     lang: 'en'
   }
 
+  var command = process.argv[2];
+  var input = "";
+  
+  for (var i = 3; i < process.argv.length; i++){
+    input += (process.argv[i] + " ");
+  }
 
-var request = require("request");
-var userCommand = process.argv[2];
-var userInput = process.argv[3];
-
- 
-
-switch(userCommand){
+switch(command){
     case "my-tweets":
-        twitter();
+        myTweets();
         break;
     case "spotify-this-song":
-        spotify();
+        spotifySong();
         break;
     case "movie-this":
-        movie();
+        printMovie();
         break;
     case "do-what-it-says":
         whatItSays();
         break;
     default:
-
+        console.log("Liri doesn't know that, sorry! >_<");
         break;
 }
 
 
-function twitter(){
-
-
+function myTweets(){
     client.get('statuses/user_timeline', params, function(error, tweets, response) {
-        if (!error) {
-          console.log(response);
-          let username = params.screen_name;
-          let tweetId = response.id_str;
-        //   console.log('Tweeted: ', `https://twitter.com/${username}/status/${tweetId}`)
+        if (error) {
+            return console.log('Error Occurred: ' + error);
+          }
+        let username = params.screen_name;
+        console.log("Twitter Username: " + username);
+        for(var i = 0; i < 20; i++){
+            console.log("# " + (i + 1) + ": " + JSON.parse(response.body)[i].text);
         }
     });
 }
-function spotify(){
+function spotifySong(){
+    if(!input){
+        input = "The Sign by Ace of Base";
+    }
 
+    spotify.search({ type: 'track', query: input, limit: 1 }, function(error, data) {
+        if (error) {
+            return console.log('Error Occurred: ' + error);
+        }
+        console.log("Song's Name: " + data.tracks.items[0].name); 
+        console.log("Artist(s): " + data.tracks.items[0].artists[0].name); 
+        console.log("Spotify Link Preview: " + data.tracks.items[0].preview_url); 
+        console.log("Song's Name: " + data.tracks.items[0].album.name); 
+    });
 }
-function movie(){
-    request("http://www.omdbapi.com/?t=" + userInput + "&y=&plot=short&apikey=trilogy", function(error, response, body) {
-        if (!error && response.statusCode === 200) {
+
+function printMovie(){
+    if(!input){
+        input = "Mr. Nobody";
+    } 
+
+    request("http://www.omdbapi.com/?t=" + input + "&y=&plot=short&apikey=trilogy", function(error, response, body) {
+        if (error) {
+            return console.log('Error occurred: ' + error);
+        } else if (response.statusCode === 200) {
             console.log("Title: " + JSON.parse(body).Title);
             console.log("Year: " + JSON.parse(body).Year);
             console.log("IMDB Rating: " + JSON.parse(body).imdbRating);
@@ -73,8 +92,26 @@ function movie(){
     });
 }
 function whatItSays(){
-    
+    fs.readFile("./random.txt", "utf8", function (error, data) {
+        if (error) {
+            return console.log('Error Occurred: ' + error);
+          }
+        command = data.split(",")[0];
+        input = data.split(",")[1];
+
+        switch(command){
+            case "my-tweets":
+                myTweets();
+                break;
+            case "spotify-this-song":
+                spotifySong();
+                break;
+            case "movie-this":
+                printMovie();
+                break;
+            default:
+                console.log("Woops, Liri doesn't know that, sorry! >_<");
+                break;
+        }
+    });    
 }
-
-
-
